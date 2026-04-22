@@ -206,24 +206,21 @@ export function ThreadList({
                                   <span>{labels.hiddenCommentsCount({ count: previewHiddenCount })}</span>
                                 </button>
                               )}
-                              <div
-                                className={`rrc-comment-row${isNewComment ? ' rrc-comment-row--new' : ''}`}
-                                data-new-comment={isNewComment ? 'true' : undefined}
-                              >
+                              <div className="rrc-comment-row">
                                 <UserAvatar name={comment.created_by} size="md" />
                                 <div className="rrc-comment-body">
                                   <div className="rrc-comment-meta">
                                     <div className="rrc-comment-meta-text">
                                       <p className="rrc-comment-author">
                                         {comment.created_by}
+                                        {isNewComment && (
+                                          <span className="rrc-new-comment-badge">{labels.newCommentBadge}</span>
+                                        )}
                                       </p>
                                       <div className="rrc-comment-time-line">
                                         <p className="rrc-comment-time">
                                           {formatCommentTime(createdAt, locale, labels)}
                                         </p>
-                                        {isNewComment && (
-                                          <span className="rrc-new-comment-badge">{labels.newCommentBadge}</span>
-                                        )}
                                       </div>
                                     </div>
                                     <div className="rrc-thread-actions">

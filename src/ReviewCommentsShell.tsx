@@ -41,9 +41,9 @@ import {
 } from './seenThreads';
 import {
   countResolvedThreads,
-  countUnresolvedComments,
-  countUnresolvedOverviewComments,
-  hasUnresolvedOverviewComments,
+  countUnresolvedThreads,
+  countUnresolvedOverviewThreads,
+  hasUnresolvedOverviewThreads,
   isUnresolvedStatus,
   partitionThreadsByResolution,
 } from './threadQueries';
@@ -203,14 +203,14 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
   }, [activeThreadId, threads, markThreadSeen]);
 
   const documentsWithComments = useMemo(
-    () => overview.filter((doc) => hasUnresolvedOverviewComments(doc)),
+    () => overview.filter((doc) => hasUnresolvedOverviewThreads(doc)),
     [overview]
   );
 
-  const unresolvedCommentCountByDocumentId = useMemo(() => {
+  const unresolvedThreadCountByDocumentId = useMemo(() => {
     const output: Record<string, number> = {};
     for (const doc of documentsWithComments) {
-      output[doc.documentId] = countUnresolvedOverviewComments(doc);
+      output[doc.documentId] = countUnresolvedOverviewThreads(doc);
     }
     return output;
   }, [documentsWithComments]);
@@ -250,13 +250,13 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
     [unreadByDocumentId]
   );
 
-  const scopeCommentCount = useMemo(
-    () => documentsWithComments.reduce((sum, doc) => sum + countUnresolvedOverviewComments(doc), 0),
+  const scopeThreadCount = useMemo(
+    () => documentsWithComments.reduce((sum, doc) => sum + countUnresolvedOverviewThreads(doc), 0),
     [documentsWithComments]
   );
 
-  const totalCommentCount = useMemo(
-    () => countUnresolvedComments(threads),
+  const totalThreadCount = useMemo(
+    () => countUnresolvedThreads(threads),
     [threads]
   );
 
@@ -284,12 +284,12 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
     ) {
       return;
     }
-    setPagesListOpen(scopeCommentCount > 0 && threads.length === 0);
+    setPagesListOpen(scopeThreadCount > 0 && threads.length === 0);
   }, [
     pagesListOpenPreferenceLoaded,
     hasPagesListOpenPreference,
     overviewCountsPending,
-    scopeCommentCount,
+    scopeThreadCount,
     threads.length,
   ]);
 
@@ -414,7 +414,6 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
       setShowResolved(thread.status === 'resolved');
       setActiveThreadId(thread.id);
       setManualExpanded(true);
-      markThreadSeen(thread.id, thread.updated_at ?? thread.updatedAt);
     });
     setThreadOrderById(nextOrderById);
     return () => {
@@ -485,7 +484,9 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
       if (!threadEl) {
         return;
       }
-      const newRow = threadEl.querySelector('.rrc-comment-row--new');
+      const newBadge = threadEl.querySelector('.rrc-new-comment-badge');
+      const newRow =
+        newBadge instanceof HTMLElement ? newBadge.closest('.rrc-comment-row') : null;
       if (newRow instanceof HTMLElement) {
         newRow.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         return;
@@ -854,10 +855,10 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
             onCollapse={handleCollapsePanel}
             badgeCountsLoading={overviewCountsPending}
             unreadTotal={unreadTotal}
-            totalOnPageCommentCount={totalCommentCount}
-            totalScopeCommentCount={scopeCommentCount}
+            totalOnPageThreadCount={totalThreadCount}
+            totalScopeThreadCount={scopeThreadCount}
             documentsWithComments={documentsWithComments}
-            unresolvedCommentCountByDocumentId={unresolvedCommentCountByDocumentId}
+            unresolvedThreadCountByDocumentId={unresolvedThreadCountByDocumentId}
             unreadByDocumentId={unreadByDocumentId}
             resolvedCount={resolvedCount}
             showResolved={showResolved}
@@ -879,7 +880,6 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
                 setSelectedAnchorSelector(null);
                 setSelectionPrompt(null);
                 setActiveThreadId(thread.id);
-                markThreadSeen(thread.id, thread.updated_at ?? thread.updatedAt);
                 setActiveThreadFocusTick((prev) => prev + 1);
               }}
               onReplyCancel={() => setActiveThreadId('')}

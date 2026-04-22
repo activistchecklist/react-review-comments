@@ -2,10 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { OverviewDocument, RrcThread } from './types';
 import {
   countResolvedThreads,
-  countUnresolvedComments,
-  countUnresolvedOverviewComments,
+  countUnresolvedThreads,
   countUnresolvedOverviewThreads,
-  hasUnresolvedOverviewComments,
+  hasUnresolvedOverviewThreads,
   partitionThreadsByResolution,
 } from './threadQueries';
 
@@ -28,8 +27,8 @@ const sampleThreads: RrcThread[] = [
 ];
 
 describe('threadQueries unresolved-first defaults', () => {
-  it('counts only unresolved comments by default', () => {
-    expect(countUnresolvedComments(sampleThreads)).toBe(1);
+  it('counts only unresolved threads by default', () => {
+    expect(countUnresolvedThreads(sampleThreads)).toBe(1);
   });
 
   it('counts resolved threads as a separate query', () => {
@@ -46,7 +45,7 @@ describe('threadQueries unresolved-first defaults', () => {
   });
 });
 
-describe('overview unresolved comment queries', () => {
+describe('overview unresolved thread queries', () => {
   const overviewDoc: OverviewDocument = {
     documentId: 'doc-1',
     sitePath: '/guide/',
@@ -60,9 +59,8 @@ describe('overview unresolved comment queries', () => {
   };
 
   it('computes unresolved totals from thread-level data', () => {
-    expect(countUnresolvedOverviewComments(overviewDoc)).toBe(1);
     expect(countUnresolvedOverviewThreads(overviewDoc)).toBe(1);
-    expect(hasUnresolvedOverviewComments(overviewDoc)).toBe(true);
+    expect(hasUnresolvedOverviewThreads(overviewDoc)).toBe(true);
   });
 
   it('treats fully resolved documents as empty for core counts', () => {
@@ -70,8 +68,7 @@ describe('overview unresolved comment queries', () => {
       ...overviewDoc,
       threads: [{ id: 'resolved-only', status: 'resolved', commentCount: 4 }],
     };
-    expect(countUnresolvedOverviewComments(fullyResolved)).toBe(0);
     expect(countUnresolvedOverviewThreads(fullyResolved)).toBe(0);
-    expect(hasUnresolvedOverviewComments(fullyResolved)).toBe(false);
+    expect(hasUnresolvedOverviewThreads(fullyResolved)).toBe(false);
   });
 });

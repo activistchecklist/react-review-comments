@@ -10,8 +10,8 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
-  MessageCircleMore,
   ChevronRight,
+  ChevronsLeft,
   ChevronsRight,
 } from 'lucide-react';
 import { useReviewComments } from './context';
@@ -39,6 +39,7 @@ function AnimatedPanelColumn({
 }) {
   const innerRef = useRef<HTMLDivElement>(null);
   const [maxHeightPx, setMaxHeightPx] = useState<number | null>(null);
+  const [isScrollCapped, setIsScrollCapped] = useState(false);
 
   useLayoutEffect(() => {
     const inner = innerRef.current;
@@ -65,12 +66,14 @@ function AnimatedPanelColumn({
       // Keep a tiny cushion for sub-pixel rounding during route/content transitions
       // so the panel does not show unnecessary scrollbars.
       const next = Math.min(Math.ceil(inner.scrollHeight + chromeY + 2), cap);
+      const capped = next >= cap;
       setMaxHeightPx((prev) => {
         if (prev === next) {
           return prev;
         }
         return next;
       });
+      setIsScrollCapped(capped);
     };
 
     sync();
@@ -91,10 +94,11 @@ function AnimatedPanelColumn({
   }, []);
 
   const maxHClass = maxHeightPx == null ? ' rrc-panel-maxvh' : '';
+  const scrollClass = isScrollCapped ? ' rrc-panel-scrollable' : '';
 
   return (
     <div
-      className={`${className}${maxHClass}`}
+      className={`${className}${maxHClass}${scrollClass}`}
       style={maxHeightPx != null ? { maxHeight: `${Math.ceil(maxHeightPx)}px` } : undefined}
     >
       <div ref={innerRef}>{children}</div>
@@ -110,13 +114,13 @@ export type ReviewCommentsPanelProps = {
   /** True while overview fetch is in flight (avoid showing "0 comments" in the collapsed badge). */
   badgeCountsLoading: boolean;
   unreadTotal: number;
-  /** Total comment bodies on open threads for the current page. */
-  totalOnPageCommentCount: number;
-  /** Total comments across the current scope (all pages with comments). */
-  totalScopeCommentCount: number;
+  /** Total unresolved threads for the current page. */
+  totalOnPageThreadCount: number;
+  /** Total unresolved threads across the current scope (all pages with threads). */
+  totalScopeThreadCount: number;
   documentsWithComments: OverviewDocument[];
   unreadByDocumentId: Record<string, number>;
-  unresolvedCommentCountByDocumentId: Record<string, number>;
+  unresolvedThreadCountByDocumentId: Record<string, number>;
   resolvedCount: number;
   showResolved: boolean;
   onToggleResolved: () => void;
@@ -135,11 +139,11 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
       onCollapse,
       badgeCountsLoading,
       unreadTotal,
-      totalOnPageCommentCount,
-      totalScopeCommentCount,
+      totalOnPageThreadCount,
+      totalScopeThreadCount,
       documentsWithComments,
       unreadByDocumentId,
-      unresolvedCommentCountByDocumentId,
+      unresolvedThreadCountByDocumentId,
       resolvedCount,
       showResolved,
       onToggleResolved,
@@ -152,55 +156,27 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
   ) {
     const { labels, path: currentPath, locale: currentLocale } = useReviewComments();
 
-    const [peekVisible, setPeekVisible] = useState(false);
-    const peekOpenTimerRef = useRef<number | null>(null);
-    const peekCloseTimerRef = useRef<number | null>(null);
-    const showPagesNav = documentsWithComments.length > 1;
+    const [expandedCountVisible, setExpandedCountVisible] = useState(false);
+    const showPagesNav = documentsWithComments.length > 0;
     const hasPagesWithComments = documentsWithComments.length > 0;
     const hasUnread = unreadTotal > 0;
-    const collapsedCount = hasUnread ? unreadTotal : totalScopeCommentCount;
+    const collapsedCount = hasUnread ? unreadTotal : totalScopeThreadCount;
+    const collapsedLabel = collapsedCount === 1 ? 'comment' : 'comments';
     const panelBodyId = 'rrc-comments-panel-body';
+    const threadCountLabel = `${totalScopeThreadCount} thread${totalScopeThreadCount === 1 ? '' : 's'}`;
 
-    function clearPeekOpenTimer() {
-      if (peekOpenTimerRef.current != null) {
-        window.clearTimeout(peekOpenTimerRef.current);
-        peekOpenTimerRef.current = null;
+    useEffect(() => {
+      if (!isPanelExpanded) {
+        setExpandedCountVisible(false);
+        return undefined;
       }
-    }
-
-    function clearPeekCloseTimer() {
-      if (peekCloseTimerRef.current != null) {
-        window.clearTimeout(peekCloseTimerRef.current);
-        peekCloseTimerRef.current = null;
-      }
-    }
-
-    function handlePeekOpen() {
-      if (isPanelExpanded) {
-        return;
-      }
-      clearPeekCloseTimer();
-      clearPeekOpenTimer();
-      peekOpenTimerRef.current = window.setTimeout(() => {
-        setPeekVisible(true);
-      }, 120);
-    }
-
-    function handlePeekClose() {
-      clearPeekOpenTimer();
-      clearPeekCloseTimer();
-      peekCloseTimerRef.current = window.setTimeout(() => {
-        setPeekVisible(false);
+      const timer = window.setTimeout(() => {
+        setExpandedCountVisible(true);
       }, 150);
-    }
-
-    useEffect(
-      () => () => {
-        clearPeekOpenTimer();
-        clearPeekCloseTimer();
-      },
-      []
-    );
+      return () => {
+        window.clearTimeout(timer);
+      };
+    }, [isPanelExpanded, totalScopeThreadCount]);
 
     return (
       <aside
@@ -215,58 +191,39 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
             aria-controls={panelBodyId}
             aria-label={
               badgeCountsLoading
-                ? labels.collapsedBadge({ count: totalScopeCommentCount })
+                ? labels.collapsedBadge({ count: totalScopeThreadCount })
                 : hasUnread
-                  ? `Open comments. ${labels.unreadBadge({ count: unreadTotal })}. ${labels.totalCommentsBadge({ count: totalScopeCommentCount })}.`
-                  : `Open comments. ${labels.totalCommentsBadge({ count: totalScopeCommentCount })}.`
+                  ? `Open comments. ${labels.unreadBadge({ count: unreadTotal })}. ${labels.totalCommentsBadge({ count: totalScopeThreadCount })}. ${totalOnPageThreadCount} open on this page.`
+                  : `Open comments. ${labels.totalCommentsBadge({ count: totalScopeThreadCount })}. ${totalOnPageThreadCount} open on this page.`
             }
             className={[
               'rrc-panel-collapsed',
+              'rrc-tooltip-anchor',
               !badgeCountsLoading && hasUnread ? 'rrc-panel-collapsed--unread' : '',
-              !badgeCountsLoading && peekVisible ? 'rrc-panel-collapsed--peek' : '',
             ]
               .filter(Boolean)
               .join(' ')}
-            onMouseEnter={handlePeekOpen}
-            onMouseLeave={handlePeekClose}
-            onFocus={handlePeekOpen}
-            onBlur={handlePeekClose}
+            data-tooltip="Expand panel"
             onClick={onExpand}
           >
             <span className="rrc-panel-collapsed-main">
-              <MessageCircleMore size={14} aria-hidden="true" />
               {badgeCountsLoading ? (
                 <span className="rrc-collapsed-count-skeleton" aria-hidden="true" />
               ) : (
                 <>
                   {hasUnread ? <span className="rrc-unread-dot" aria-hidden="true" /> : null}
-                  <span>{collapsedCount > 99 ? '99+' : collapsedCount}</span>
+                  <span className="rrc-panel-expand-hint" aria-hidden="true">
+                    <ChevronsLeft size={13} />
+                  </span>
+                  <span className="rrc-panel-collapsed-count">
+                    {collapsedCount > 99 ? '99+' : collapsedCount}
+                  </span>
+                  <span className="rrc-panel-collapsed-label" aria-hidden="true">
+                    {collapsedLabel}
+                  </span>
                 </>
               )}
             </span>
-            {!badgeCountsLoading && peekVisible ? (
-              <span className="rrc-panel-peek" role="status" aria-live="polite">
-                <span className="rrc-panel-peek-group rrc-panel-peek-group--site">
-                  <span className="rrc-panel-peek-title">Site</span>
-                  <span className="rrc-panel-peek-row">
-                    <span>Unread</span>
-                    <strong>{unreadTotal > 99 ? '99+' : unreadTotal}</strong>
-                  </span>
-                  <span className="rrc-panel-peek-row">
-                    <span>Total</span>
-                    <strong>{totalScopeCommentCount > 99 ? '99+' : totalScopeCommentCount}</strong>
-                  </span>
-                </span>
-                <span className="rrc-panel-peek-divider" aria-hidden="true" />
-                <span className="rrc-panel-peek-group rrc-panel-peek-group--page">
-                  <span className="rrc-panel-peek-title">This page</span>
-                  <span className="rrc-panel-peek-row">
-                    <span>Open comments</span>
-                    <strong>{totalOnPageCommentCount > 99 ? '99+' : totalOnPageCommentCount}</strong>
-                  </span>
-                </span>
-              </span>
-            ) : null}
           </button>
         )}
 
@@ -276,16 +233,32 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
               <div className="rrc-panel-header">
                 <div className="rrc-panel-heading">
                   <h2 className="rrc-panel-title">{labels.prOverviewTitle}</h2>
+                  <p className="rrc-panel-thread-count" aria-live="polite">
+                    <span
+                      className={`rrc-panel-thread-count-zero${expandedCountVisible ? ' rrc-panel-thread-count-zero--hidden' : ''}`}
+                    >
+                      0
+                    </span>
+                    <span
+                      className={`rrc-panel-thread-count-full${expandedCountVisible ? ' rrc-panel-thread-count-full--visible' : ''}`}
+                    >
+                      {threadCountLabel}
+                    </span>
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  aria-label={labels.collapse}
-                  title={labels.collapse}
-                  className="rrc-icon-btn"
-                  onClick={onCollapse}
+                <span
+                  className="rrc-tooltip-anchor rrc-tooltip-anchor--left"
+                  data-tooltip={labels.collapse}
                 >
-                  <ChevronsRight size={16} />
-                </button>
+                  <button
+                    type="button"
+                    aria-label={labels.collapse}
+                    className="rrc-icon-btn"
+                    onClick={onCollapse}
+                  >
+                    <ChevronsRight size={16} />
+                  </button>
+                </span>
               </div>
 
               {showPagesNav && (
@@ -319,11 +292,11 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
                       ) : null}
                       <span
                         className="rrc-doc-count-badge rrc-doc-count-badge--comments rrc-tooltip-anchor"
-                        title={labels.totalCommentsBadge({ count: totalScopeCommentCount })}
-                        data-tooltip={labels.totalCommentsBadge({ count: totalScopeCommentCount })}
-                        aria-label={labels.totalCommentsBadge({ count: totalScopeCommentCount })}
+                        title={labels.totalCommentsBadge({ count: totalScopeThreadCount })}
+                        data-tooltip={labels.totalCommentsBadge({ count: totalScopeThreadCount })}
+                        aria-label={labels.totalCommentsBadge({ count: totalScopeThreadCount })}
                       >
-                        <span>{totalScopeCommentCount}</span>
+                        <span>{totalScopeThreadCount}</span>
                       </span>
                     </span>
                   </button>
@@ -345,11 +318,11 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
                               className="rrc-doc-count-badge rrc-doc-count-badge--comments"
                               title={
                                 labels.totalCommentsBadge({
-                                  count: unresolvedCommentCountByDocumentId[doc.documentId] || 0,
+                                  count: unresolvedThreadCountByDocumentId[doc.documentId] || 0,
                                 })
                               }
                             >
-                              {unresolvedCommentCountByDocumentId[doc.documentId] || 0}
+                              {unresolvedThreadCountByDocumentId[doc.documentId] || 0}
                             </span>
                             <span className="rrc-truncate">{withLocalePath(doc.locale, doc.sitePath)}</span>
                             {unreadByDocumentId[doc.documentId] > 0 ? (

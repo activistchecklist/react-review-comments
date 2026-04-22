@@ -13,6 +13,17 @@ function hasDarkClass(el: Element | null): boolean {
   );
 }
 
+function hasLightClass(el: Element | null): boolean {
+  if (!(el instanceof Element)) {
+    return false;
+  }
+  return (
+    el.classList.contains('light') ||
+    el.classList.contains('theme-light') ||
+    el.classList.contains('light-mode')
+  );
+}
+
 function hasDarkDataAttr(el: Element | null): boolean {
   if (!(el instanceof Element)) {
     return false;
@@ -27,75 +38,79 @@ function hasDarkDataAttr(el: Element | null): boolean {
   return false;
 }
 
-function hasDarkColorScheme(el: Element | null): boolean {
-  if (!(el instanceof Element) || typeof window === 'undefined') {
+function hasLightDataAttr(el: Element | null): boolean {
+  if (!(el instanceof Element)) {
     return false;
   }
-  try {
-    return window.getComputedStyle(el).colorScheme.includes('dark');
-  } catch {
-    return false;
-  }
-}
-
-function parseRgbChannels(value: string): [number, number, number] | null {
-  const match = value.match(/rgba?\(([^)]+)\)/i);
-  if (!match) {
-    return null;
-  }
-  const parts = match[1]
-    .split(',')
-    .slice(0, 3)
-    .map((part) => Number.parseFloat(part.trim()));
-  if (parts.length !== 3 || parts.some((part) => Number.isNaN(part))) {
-    return null;
-  }
-  return [parts[0], parts[1], parts[2]];
-}
-
-function relativeLuminance([r, g, b]: [number, number, number]): number {
-  const normalize = (channel: number) => {
-    const c = channel / 255;
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-  };
-  const R = normalize(r);
-  const G = normalize(g);
-  const B = normalize(b);
-  return 0.2126 * R + 0.7152 * G + 0.0722 * B;
-}
-
-function hasDarkRenderedPalette(): boolean {
-  if (typeof document === 'undefined' || typeof window === 'undefined') {
-    return false;
-  }
-  const probeTargets: Array<Element | null> = [
-    document.body,
-    document.getElementById('__next'),
-    document.querySelector('main'),
-    document.documentElement,
-  ];
-  for (const target of probeTargets) {
-    if (!(target instanceof Element)) {
-      continue;
-    }
-    try {
-      const styles = window.getComputedStyle(target);
-      const bg = parseRgbChannels(styles.backgroundColor || '');
-      const fg = parseRgbChannels(styles.color || '');
-      if (!bg || !fg) {
-        continue;
-      }
-      const bgLum = relativeLuminance(bg);
-      const fgLum = relativeLuminance(fg);
-      // Dark UIs generally have low luminance backgrounds and lighter text.
-      if (bgLum < 0.24 && fgLum > bgLum) {
-        return true;
-      }
-    } catch {
-      // Ignore style lookup errors and continue probing.
+  const keys = ['theme', 'mode', 'colorScheme', 'color-scheme'];
+  for (const key of keys) {
+    const v = el.getAttribute(`data-${key}`);
+    if (typeof v === 'string' && v.toLowerCase() === 'light') {
+      return true;
     }
   }
   return false;
+}
+
+function resolveElementTheme(el: Element | null): boolean | null {
+  if (!(el instanceof Element)) {
+    return null;
+  }
+  const hasLightData = hasLightDataAttr(el);
+  const hasDarkData = hasDarkDataAttr(el);
+  if (hasLightData && !hasDarkData) {
+    return false;
+  }
+  if (hasDarkData && !hasLightData) {
+    return true;
+  }
+  if (hasLightData && hasDarkData) {
+    return false;
+  }
+
+  const hasLightCls = hasLightClass(el);
+  const hasDarkCls = hasDarkClass(el);
+  if (hasLightCls && !hasDarkCls) {
+    return false;
+  }
+  if (hasDarkCls && !hasLightCls) {
+    return true;
+  }
+  if (hasLightCls && hasDarkCls) {
+    return false;
+  }
+  return null;
+}
+
+function resolveColorSchemeTheme(el: Element | null): boolean | null {
+  if (!(el instanceof Element) || typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const rawColorScheme = window.getComputedStyle(el).colorScheme.trim().toLowerCase();
+    if (!rawColorScheme || rawColorScheme === 'normal') {
+      return null;
+    }
+    const tokens = rawColorScheme.split(/\s+/).filter(Boolean);
+    if (!tokens.length) {
+      return null;
+    }
+    const hasLight = tokens.includes('light');
+    const hasDark = tokens.includes('dark');
+    // `color-scheme: light dark` means "supports both"; active mode should follow the system.
+    if (hasLight && typeof window.matchMedia === 'function') {
+      if (hasDark) {
+        return window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      return false;
+    }
+    if (hasDark) {
+      return true;
+    }
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 function detectHostDarkMode(): boolean {
@@ -104,15 +119,28 @@ function detectHostDarkMode(): boolean {
   }
   const root = document.documentElement;
   const body = document.body;
-  return (
-    hasDarkClass(root) ||
-    hasDarkClass(body) ||
-    hasDarkDataAttr(root) ||
-    hasDarkDataAttr(body) ||
-    hasDarkColorScheme(root) ||
-    hasDarkColorScheme(body) ||
-    hasDarkRenderedPalette()
-  );
+  const rootTheme = resolveElementTheme(root);
+  if (rootTheme != null) {
+    return rootTheme;
+  }
+  const bodyTheme = resolveElementTheme(body);
+  if (bodyTheme != null) {
+    return bodyTheme;
+  }
+
+  const rootColorSchemeTheme = resolveColorSchemeTheme(root);
+  if (rootColorSchemeTheme != null) {
+    return rootColorSchemeTheme;
+  }
+  const bodyColorSchemeTheme = resolveColorSchemeTheme(body);
+  if (bodyColorSchemeTheme != null) {
+    return bodyColorSchemeTheme;
+  }
+
+  if (typeof window.matchMedia === 'function') {
+    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+  }
+  return false;
 }
 
 export function useHostDarkMode(): boolean {
