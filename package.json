@@ -4,33 +4,47 @@
   "description": "Google-Docs-style anchored review comments for React and Next.js (client shell + optional API handler).",
   "license": "GPL-3.0",
   "type": "module",
-  "main": "./src/index.ts",
-  "types": "./src/index.ts",
+  "main": "./dist/src/index.js",
+  "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": "./src/index.ts",
-    "./server": "./server/handler.ts",
-    "./server/collections": "./server/collections.ts",
-    "./server/db": "./server/db.ts",
-    "./styles.css": "./src/rrc.css",
-    "./highlightDom": "./src/highlightDom.ts"
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "default": "./dist/src/index.js"
+    },
+    "./server": {
+      "types": "./dist/server/handler.d.ts",
+      "default": "./dist/server/handler.js"
+    },
+    "./server/collections": {
+      "types": "./dist/server/collections.d.ts",
+      "default": "./dist/server/collections.js"
+    },
+    "./server/db": {
+      "types": "./dist/server/db.d.ts",
+      "default": "./dist/server/db.js"
+    },
+    "./styles.css": "./dist/rrc.css",
+    "./highlightDom": {
+      "types": "./dist/src/highlightDom.d.ts",
+      "default": "./dist/src/highlightDom.js"
+    }
   },
   "files": [
-    "src",
-    "server",
-    "shared",
+    "dist",
     "LICENSE",
     "README.md"
   ],
   "peerDependencies": {
-    "@annotorious/react": ">=3",
-    "@recogito/react-text-annotator": ">=3",
-    "lucide-react": ">=0.400",
-    "next": ">=14",
     "react": "^18.2.0 || ^19.0.0",
     "react-dom": "^18.2.0 || ^19.0.0"
   },
   "dependencies": {
-    "mongodb": "^7.1.1"
+    "@annotorious/react": "^3.8.0",
+    "@recogito/react-text-annotator": "^3.4.9",
+    "lucide-react": "^1.8.0",
+    "mongodb": "^7.1.1",
+    "next": "^15.5.15",
+    "openseadragon": "^6.0.2"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.0.0",
@@ -38,6 +52,7 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.0.0",
     "jsdom": "^29.0.2",
+    "tsup": "^8.5.1",
     "typescript": "~5.7.0",
     "vitest": "^4.1.2"
   },
@@ -45,6 +60,9 @@
     "**/*.css"
   ],
   "scripts": {
+    "clean": "rm -rf dist",
+    "build": "yarn clean && tsup src/index.ts src/highlightDom.ts server/handler.ts server/collections.ts server/db.ts --format esm --dts --out-dir dist && cp src/rrc.css dist/rrc.css",
+    "prepack": "yarn build",
     "typecheck": "tsc --noEmit",
     "test": "vitest run"
   }

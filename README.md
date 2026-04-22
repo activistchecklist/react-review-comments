@@ -1,4 +1,4 @@
-# react-review-comments (`@activistchecklist/react-review-comments`)
+# react-review-comments
 
 > [!WARNING]
 > Warning: This library is **alpha**. It is developed for and tested alongside [ActivistChecklist.org](https://activistchecklist.org). **It has not been validated on other deployments yet**. APIs, environment contracts, and Mongo layout may change. It may work just fine for you. We'd love help testing it.
@@ -12,17 +12,15 @@ It was designed for deploy preview branches (Vercel, Railway, and similar) and m
 ## Install
 
 ```bash
-# npm
+# Pick your package manager
 npm install @activistchecklist/react-review-comments
-# yarn
 yarn add @activistchecklist/react-review-comments
-# pnpm
 pnpm add @activistchecklist/react-review-comments
 ```
 
 **Peers:** `react`, `react-dom`, `next` (App Router recommended), `@annotorious/react`, `@recogito/react-text-annotator`, `lucide-react`. **`mongodb`** is bundled as a regular dependency — you do not need to install it separately.
 
-The package ships **TypeScript** source. If you use **Next.js**, add one line to `next.config.js` (see [When to use `transpilePackages`](#when-to-use-transpilepackages)).
+The package ships prebuilt ESM + type declarations.
 
 ## Quick setup
 
@@ -52,7 +50,7 @@ import {
   handleReviewCommentsRequest,
   type ReviewCommentsRouteContext,
 } from '@activistchecklist/react-review-comments/server';
-import { getReviewCommentsConfig } from './your-app/review-comments-env';
+import { getReviewCommentsConfig } from '@/lib/review-comments-env';
 
 export const dynamic = 'force-dynamic';
 
@@ -68,6 +66,46 @@ export const GET = handler;
 export const POST = handler;
 export const PATCH = handler;
 export const DELETE = handler;
+```
+
+**2a. Create `getReviewCommentsConfig`**
+
+Create a small helper in your app, for example `lib/review-comments-env.ts`:
+
+```typescript
+import { type ReviewCommentsRuntimeConfig } from '@activistchecklist/react-review-comments/server';
+
+function isTrue(value: string | undefined): boolean {
+  return ['1', 'true', 'yes', 'on'].includes((value || '').toLowerCase());
+}
+
+export function getReviewCommentsConfig(env: NodeJS.ProcessEnv = process.env): ReviewCommentsRuntimeConfig {
+  return {
+    enabled: isTrue(env.REVIEW_COMMENTS_ENABLED),
+    publicReadWrite: isTrue(env.REVIEW_COMMENTS_PUBLIC_WRITE || 'true'),
+  };
+}
+```
+
+If your route is JavaScript, use `lib/review-comments-env.js`:
+
+```javascript
+function isTrue(value) {
+  return ['1', 'true', 'yes', 'on'].includes(String(value || '').toLowerCase());
+}
+
+export function getReviewCommentsConfig(env = process.env) {
+  return {
+    enabled: isTrue(env.REVIEW_COMMENTS_ENABLED),
+    publicReadWrite: isTrue(env.REVIEW_COMMENTS_PUBLIC_WRITE || 'true'),
+  };
+}
+```
+
+Then import it in your route:
+
+```typescript
+import { getReviewCommentsConfig } from '@/lib/review-comments-env';
 ```
 
 **3. Environment variables**
@@ -114,7 +152,7 @@ export default async function GuideLayout({ children }: { children: React.ReactN
 ```typescript
 import { auth } from '@/auth';
 import { handleReviewCommentsRequest, type ReviewCommentsRouteContext } from '@activistchecklist/react-review-comments/server';
-import { getReviewCommentsConfig } from './your-app/review-comments-env';
+import { getReviewCommentsConfig } from '@/lib/review-comments-env';
 
 const handlerOptions = { getReviewCommentsRuntimeConfig: getReviewCommentsConfig };
 

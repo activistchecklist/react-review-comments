@@ -7,20 +7,8 @@ type ExtendedSpanStyle = CSSStyleDeclaration & {
   webkitBoxDecorationBreak?: string;
 };
 
-/**
- * Quote-match diagnostics. In the browser console:
- *   window.__ANNOTATION_HIGHLIGHT_DEBUG__ = true   // force logs (e.g. production preview)
- *   window.__ANNOTATION_HIGHLIGHT_DEBUG__ = false  // silence logs in development
- * Default: log when NODE_ENV === 'development' unless explicitly disabled.
- */
-export function isAnnotationHighlightDebugEnabled() {
-  if (typeof window !== 'undefined' && window.__ANNOTATION_HIGHLIGHT_DEBUG__ === false) {
-    return false;
-  }
-  if (typeof window !== 'undefined' && window.__ANNOTATION_HIGHLIGHT_DEBUG__ === true) {
-    return true;
-  }
-  return typeof process !== 'undefined' && process.env.NODE_ENV === 'development';
+export function isAnnotationHighlightDebugEnabled(): boolean {
+  return false;
 }
 
 function snippet(str: unknown, head = 96, tail = 48): string {
@@ -33,12 +21,7 @@ function snippet(str: unknown, head = 96, tail = 48): string {
   return `${str.slice(0, head)} …[${str.length} chars]… ${str.slice(-tail)}`;
 }
 
-function logHighlight(stage: string, payload: Record<string, unknown>): void {
-  if (!isAnnotationHighlightDebugEnabled()) {
-    return;
-  }
-  console.log(`[annotations:highlight] ${stage}`, payload);
-}
+function logHighlight(_stage: string, _payload: Record<string, unknown>): void {}
 
 /** First index where a and b differ; -1 if equal up to min length. */
 function firstDiffIndex(a: string, b: string): number {
