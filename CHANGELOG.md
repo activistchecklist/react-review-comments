@@ -1,5 +1,11 @@
 # @activistchecklist/react-review-comments
 
+## 0.1.5
+
+### Patch Changes
+
+- 0befe2c: Refine docked sidebar styling so the dock container owns the visual chrome, uses an inset inner shadow, and adds left padding for better shadow breathing room.
+
 ## 0.1.4
 
 ### Patch Changes
