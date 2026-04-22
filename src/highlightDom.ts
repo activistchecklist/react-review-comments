@@ -7,10 +7,6 @@ type ExtendedSpanStyle = CSSStyleDeclaration & {
   webkitBoxDecorationBreak?: string;
 };
 
-export function isAnnotationHighlightDebugEnabled(): boolean {
-  return false;
-}
-
 function snippet(str: unknown, head = 96, tail = 48): string {
   if (str == null || typeof str !== 'string') {
     return String(str);
@@ -209,9 +205,6 @@ const CONTEXT_WINDOW_CHARS = 160;
  * Must stay below mapNormTrimmedRangeToRawExclusive in source order is not required at runtime.
  */
 function logLongQuoteSpacedMiss(spaced: string, quoteRaw: string): void {
-  if (!isAnnotationHighlightDebugEnabled()) {
-    return;
-  }
   const q = scrubAnnotationQuoteText(quoteRaw);
   if (!q) {
     logHighlight('miss: longQuote+spaced', { reason: 'empty q after scrub' });
@@ -244,9 +237,6 @@ function logLongQuoteSpacedMiss(spaced: string, quoteRaw: string): void {
 }
 
 function logLongQuoteCompactMiss(compact: string, quoteRaw: string): void {
-  if (!isAnnotationHighlightDebugEnabled()) {
-    return;
-  }
   const q = scrubAnnotationQuoteText(quoteRaw);
   if (!q) {
     logHighlight('miss: longQuote+compact', { reason: 'empty q after scrub' });
@@ -395,11 +385,8 @@ export function applyDraftQuoteHighlight(root: Element | null | undefined, quote
       wrapRangeWithDraftQuoteSpan(range);
     });
   }
-  if (!wrappedAny && isAnnotationHighlightDebugEnabled()) {
-    console.warn('[annotations:highlight] draft highlight: match found but wrap produced no spans', {
-      mode: result.mode,
-      match: result.match,
-    });
+  if (!wrappedAny) {
+    return;
   }
 }
 

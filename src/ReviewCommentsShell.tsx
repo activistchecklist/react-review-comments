@@ -28,11 +28,10 @@ import {
   computeSelectionPromptPosition,
   elementsWithAnnotationThreadId,
   expandCollapsedAncestorsForNode,
-  isAnnotationHighlightDebugEnabled,
   rangeAnchorRect,
   setActiveHighlightInRoot,
 } from './highlightDom';
-import { ANNOTATION_MAX_QUOTE_LEN, normalizeQuoteMatchText } from '../shared/sanitize';
+import { ANNOTATION_MAX_QUOTE_LEN } from '../shared/sanitize';
 import {
   isThreadUnread,
   loadSeenThreadMap,
@@ -665,16 +664,6 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
     }
     const slice = text.slice(0, ANNOTATION_MAX_QUOTE_LEN);
     pendingQuoteRef.current = slice;
-    if (isAnnotationHighlightDebugEnabled()) {
-      const scrubbedLen = normalizeQuoteMatchText(slice).length;
-      console.log('[annotations:highlight] mouseUp selection', {
-        rawTrimmedLen: text.length,
-        storedSliceLen: slice.length,
-        normalizedLen: scrubbedLen,
-        head200: slice.slice(0, 200),
-        tail80: slice.length > 280 ? slice.slice(-80) : undefined,
-      });
-    }
     setSelectedQuote('');
     setSelectedRangeOffsets(null);
     setSelectedAnchorSelector(null);
