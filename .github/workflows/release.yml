@@ -32,6 +32,12 @@ jobs:
       - name: Verify toolchain versions
         run: node -v && npm -v && yarn -v
 
+      - name: Print GitHub OIDC identity context
+        run: |
+          echo "repository=$GITHUB_REPOSITORY"
+          echo "workflow_ref=$GITHUB_WORKFLOW_REF"
+          echo "ref=$GITHUB_REF"
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
