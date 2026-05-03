@@ -2,6 +2,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { ReviewCommentsContextProvider } from './context';
 import ReviewCommentsShell from './ReviewCommentsShell';
+import { ReviewCommentsContent } from './ReviewCommentsContent';
 import type { ReviewCommentsScope } from './types';
 
 vi.mock('@annotorious/react', () => ({
@@ -74,5 +75,63 @@ describe('ReviewCommentsShell — enabled flag', () => {
     await waitFor(() => {
       expect(container.querySelector('.rrc-aside')).toBeTruthy();
     });
+  });
+
+  it('does not mount TextAnnotator unless ReviewCommentsContent is rendered', async () => {
+    mockFetchThreadsAndOverview();
+
+    const { container } = render(
+      <ReviewCommentsContextProvider
+        apiBase="/api/review-comments"
+        enabled
+        path="/guide/"
+        locale="en"
+        scope={scope}
+      >
+        <ReviewCommentsShell>
+          <header data-testid="chrome">Site nav</header>
+          <main>Article</main>
+        </ReviewCommentsShell>
+      </ReviewCommentsContextProvider>
+    );
+
+    await waitFor(() => {
+      expect(container.querySelector('.rrc-aside')).toBeTruthy();
+    });
+    expect(container.querySelector('[data-mock="text-annotator"]')).toBeNull();
+    expect(container.querySelector('[data-testid="chrome"]')).toBeTruthy();
+  });
+
+  it('mounts TextAnnotator inside ReviewCommentsContent and keeps chrome outside it', async () => {
+    mockFetchThreadsAndOverview();
+
+    const { container } = render(
+      <ReviewCommentsContextProvider
+        apiBase="/api/review-comments"
+        enabled
+        path="/guide/"
+        locale="en"
+        scope={scope}
+      >
+        <ReviewCommentsShell>
+          <header data-testid="chrome">Site nav</header>
+          <main>
+            <ReviewCommentsContent>
+              <article data-testid="article">Article body</article>
+            </ReviewCommentsContent>
+          </main>
+        </ReviewCommentsShell>
+      </ReviewCommentsContextProvider>
+    );
+
+    const annotator = await waitFor(() => {
+      const node = container.querySelector('[data-mock="text-annotator"]');
+      expect(node).toBeTruthy();
+      return node!;
+    });
+    expect(annotator.querySelector('[data-testid="article"]')).toBeTruthy();
+    /* Chrome must stay OUTSIDE the annotator so its click preventDefault hook doesn't break
+       Radix-based interactives in the header. */
+    expect(annotator.querySelector('[data-testid="chrome"]')).toBeNull();
   });
 });

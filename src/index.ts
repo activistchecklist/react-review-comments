@@ -5,6 +5,7 @@ export {
 export { ReviewCommentsContextProvider, useReviewComments } from './context';
 export { ReviewCommentsProvider } from './ReviewCommentsProvider';
 export { default as ReviewCommentsShell } from './ReviewCommentsShell';
+export { ReviewCommentsContent } from './ReviewCommentsContent';
 export { ReviewCommentsPanel } from './ReviewCommentsPanel';
 export { createReviewCommentsApi } from './api';
 export { defaultReviewCommentsLabels } from './defaultLabels';
