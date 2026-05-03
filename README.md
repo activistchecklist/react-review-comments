@@ -24,22 +24,33 @@ The package ships prebuilt ESM + type declarations.
 
 ## Quick setup
 
-**1. Client: provider**
+**1. Client: provider + content slot**
 
-In a Next.js layout, add **`ReviewCommentsProvider`**. It includes the shell and styles; **`path`**, **`locale`**, and **`scope`** are optional and inferred from the URL and `window.location.host` when omitted. **`enabled`** defaults to `true` when omitted.
+In a Next.js layout, add **`ReviewCommentsProvider`** at the top of the tree, then wrap the page's annotatable region (typically inside `<main>`) with **`ReviewCommentsContent`**. Chrome (header, nav, footer, modals) must sit OUTSIDE `ReviewCommentsContent` — the underlying text annotator installs a `click` `preventDefault()` on its container, which would otherwise short-circuit Radix interactives (`Dialog`, `Popover`, `DropdownMenu`, etc.) elsewhere on the page.
+
+**`path`**, **`locale`**, and **`scope`** are optional and inferred from the URL and `window.location.host` when omitted. **`enabled`** defaults to `true` when omitted.
 
 ```tsx
-import { ReviewCommentsProvider } from '@activistchecklist/react-review-comments';
+import {
+  ReviewCommentsProvider,
+  ReviewCommentsContent,
+} from '@activistchecklist/react-review-comments';
 
 export default async function Layout({ children }) {
   const enabled = true;
   return (
     <ReviewCommentsProvider enabled={enabled}>
-      {children}
+      <Header />
+      <main>
+        <ReviewCommentsContent>{children}</ReviewCommentsContent>
+      </main>
+      <Footer />
     </ReviewCommentsProvider>
   );
 }
 ```
+
+If `ReviewCommentsContent` is omitted, the panel, threads, and hotkeys still mount, but text-selection commenting is inert (the annotator never mounts).
 
 **2. Next.js App Router: one API route.** Add a **catch-all** and forward to the package handler.
 
@@ -264,7 +275,7 @@ Types are exported from the package entry for the client API, provider props, th
 
 ### Manual context provider + shell
 
-Use **`ReviewCommentsContextProvider`** when you need a custom shell or split imports. Wrap the **main article body** with the context provider and **`ReviewCommentsShell`**. Pass **`scope`** from `reviewCommentsScopeFromHostHeader` (or `window.location.host` in a client-only tree) so it matches what the API will use.
+Use **`ReviewCommentsContextProvider`** when you need a custom shell or split imports. Pass **`scope`** from `reviewCommentsScopeFromHostHeader` (or `window.location.host` in a client-only tree) so it matches what the API will use. Place **`ReviewCommentsContent`** around the annotatable region inside the shell — see the note in [Quick setup](#quick-setup) about why chrome must stay outside it.
 
 ```jsx
 'use client';
@@ -272,6 +283,7 @@ Use **`ReviewCommentsContextProvider`** when you need a custom shell or split im
 import {
   ReviewCommentsContextProvider,
   ReviewCommentsShell,
+  ReviewCommentsContent,
 } from '@activistchecklist/react-review-comments';
 import '@activistchecklist/react-review-comments/styles.css';
 
@@ -284,7 +296,13 @@ export function CommentsWrapper({ enabled, path, locale, scope, children }) {
       locale={locale}
       scope={scope}
     >
-      <ReviewCommentsShell>{children}</ReviewCommentsShell>
+      <ReviewCommentsShell>
+        <Header />
+        <main>
+          <ReviewCommentsContent>{children}</ReviewCommentsContent>
+        </main>
+        <Footer />
+      </ReviewCommentsShell>
     </ReviewCommentsContextProvider>
   );
 }
