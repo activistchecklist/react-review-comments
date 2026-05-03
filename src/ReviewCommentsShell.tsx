@@ -1,16 +1,17 @@
 'use client';
 
 import {
+  createContext,
   useMemo,
   useState,
   useEffect,
   useLayoutEffect,
   useRef,
   useCallback,
+  type MutableRefObject,
   type ReactNode,
 } from 'react';
 import { Annotorious } from '@annotorious/react';
-import { TextAnnotator } from '@recogito/react-text-annotator';
 import { useReviewComments } from './context';
 import { ReviewCommentsPanel } from './ReviewCommentsPanel';
 import { SelectionComposer } from './SelectionComposer';
@@ -49,6 +50,33 @@ import {
 } from './threadQueries';
 import { useSessionAuthor } from './sessionAuthor';
 import type { OverviewDocument, RrcThread } from './types';
+
+/**
+ * Bridge between `ReviewCommentsShell` (state owner) and `ReviewCommentsContent` (mounts the
+ * `TextAnnotator` and content div). Lives inside the Shell tree only, not part of the public API.
+ *
+ * The package's text annotator dependency installs a document-level click `preventDefault()` on its
+ * own container element (see `@recogito/text-annotator` `createTextAnnotator`). Wrapping the whole
+ * page in that container breaks Radix-based interactives (`Dialog`, `Popover`, `DropdownMenu`,
+ * etc.) because they short-circuit on `event.defaultPrevented`. Splitting the annotator into a
+ * narrower `ReviewCommentsContent` slot keeps chrome (header, footer, modals) outside the
+ * preventDefault zone.
+ */
+export interface ReviewCommentsContentBridge {
+  enabled: boolean;
+  contentRef: MutableRefObject<HTMLDivElement | null>;
+  contentClassName: string;
+  themeClassName: string;
+  onContentMouseUp: () => void;
+  selectionPrompt: { quote: string; top: number; left: number } | null;
+  selectionPromptRef: MutableRefObject<HTMLDivElement | null>;
+  commitSelectionFromPrompt: () => void;
+  addCommentShortcutHint: string;
+  addCommentLabel: string;
+}
+
+export const ReviewCommentsContentBridgeContext =
+  createContext<ReviewCommentsContentBridge | null>(null);
 
 export default function ReviewCommentsShell({ children }: { children: ReactNode }) {
   const { labels, api, enabled, panelMode, path, locale, scope } = useReviewComments();
@@ -829,24 +857,42 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
     !selectedQuote &&
     !selectionPrompt;
 
+  const bridgeValue = useMemo<ReviewCommentsContentBridge>(
+    () => ({
+      enabled,
+      contentRef,
+      contentClassName: `rrc-shell-content${
+        isPanelExpanded && selectedQuote ? ' rrc-select-amber' : ''
+      }`,
+      themeClassName,
+      onContentMouseUp: handleMouseUp,
+      selectionPrompt,
+      selectionPromptRef,
+      commitSelectionFromPrompt,
+      addCommentShortcutHint,
+      addCommentLabel: labels.addComment,
+    }),
+    /* `handleMouseUp` is a stable closure declared inside this component. Including it would
+       require lifting it via `useCallback` for no behavioral gain — the bridge value is only read
+       by `ReviewCommentsContent` which always re-renders when this Shell does. */
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      enabled,
+      isPanelExpanded,
+      selectedQuote,
+      themeClassName,
+      selectionPrompt,
+      commitSelectionFromPrompt,
+      addCommentShortcutHint,
+      labels.addComment,
+    ]
+  );
+
   return (
-    <Annotorious>
-      {/*
-        Recogito defaults to annotatingEnabled: true, which records each text selection as a
-        draft annotation and paints highlights (see text-annotator.css *::selection and the
-        span highlight layer). We drive comments via handleMouseUp + selectionPrompt instead, so
-        keep the annotator from storing selection state or leaving highlight nodes behind.
-      */}
-      <TextAnnotator annotatingEnabled={false}>
+    <ReviewCommentsContentBridgeContext.Provider value={bridgeValue}>
+      <Annotorious>
         <div className={`rrc-shell-layout rrc-shell-layout--${panelMode} ${themeClassName}`}>
-          <div
-            ref={contentRef}
-            data-annotations-enabled="true"
-            className={`rrc-shell-content${isPanelExpanded && selectedQuote ? ' rrc-select-amber' : ''}`}
-            onMouseUp={handleMouseUp}
-          >
-            {children}
-          </div>
+          {children}
           <ReviewCommentsPanel
             ref={panelRef}
             panelMode={panelMode}
@@ -980,33 +1026,7 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
             />
           </ReviewCommentsPanel>
         </div>
-        {selectionPrompt ? (
-          <div
-            ref={selectionPromptRef}
-            className={`rrc-root rrc-selection-prompt ${themeClassName}`}
-            style={{ top: selectionPrompt.top, left: selectionPrompt.left }}
-          >
-            <button
-              type="button"
-              aria-label={
-                addCommentShortcutHint
-                  ? `${labels.addComment} (${addCommentShortcutHint})`
-                  : labels.addComment
-              }
-              onMouseDown={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                commitSelectionFromPrompt();
-              }}
-            >
-              {labels.addComment}
-              {addCommentShortcutHint ? (
-                <span className="rrc-selection-prompt-kbd"> {addCommentShortcutHint}</span>
-              ) : null}
-            </button>
-          </div>
-        ) : null}
-      </TextAnnotator>
-    </Annotorious>
+      </Annotorious>
+    </ReviewCommentsContentBridgeContext.Provider>
   );
 }
