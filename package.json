@@ -1,6 +1,6 @@
 {
   "name": "@activistchecklist/react-review-comments",
-  "version": "0.1.5",
+  "version": "0.2.0",
   "description": "Google-Docs-style anchored review comments for React and Next.js (client shell + optional API handler).",
   "license": "GPL-3.0",
   "repository": {
