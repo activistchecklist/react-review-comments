@@ -582,6 +582,21 @@
   color: var(--rrc-text);
 }
 
+.rrc-icon-btn:disabled,
+.rrc-icon-btn[aria-disabled='true'] {
+  opacity: 0.4;
+  cursor: default;
+  background: transparent;
+  color: var(--rrc-muted);
+}
+
+.rrc-panel-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.125rem;
+  flex-shrink: 0;
+}
+
 .rrc-theme-dark .rrc-icon-btn:hover {
   background: rgba(148, 163, 184, 0.18);
 }

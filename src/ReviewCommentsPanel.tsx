@@ -10,9 +10,11 @@ import {
 } from 'react';
 import Link from 'next/link';
 import {
+  Check,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  Copy,
 } from 'lucide-react';
 import { useReviewComments } from './context';
 import { withLocalePath } from './annotationPaths';
@@ -127,6 +129,10 @@ export type ReviewCommentsPanelProps = {
   showEmptyHint: boolean;
   pagesListOpen: boolean;
   onTogglePagesList: () => void;
+  /** Copy the current page's threads as Markdown. Button is hidden when not provided. */
+  onCopyThreads?: () => Promise<boolean> | boolean;
+  /** Disable the copy button when there are no threads to copy. */
+  canCopyThreads?: boolean;
   children: ReactNode;
 };
 
@@ -150,6 +156,8 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
       showEmptyHint,
       pagesListOpen,
       onTogglePagesList,
+      onCopyThreads,
+      canCopyThreads,
       children,
     },
     ref
@@ -157,6 +165,32 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
     const { labels, path: currentPath, locale: currentLocale } = useReviewComments();
 
     const [expandedCountVisible, setExpandedCountVisible] = useState(false);
+    const [copyConfirmed, setCopyConfirmed] = useState(false);
+    const copyConfirmTimerRef = useRef<number | null>(null);
+    useEffect(() => {
+      return () => {
+        if (copyConfirmTimerRef.current != null) {
+          window.clearTimeout(copyConfirmTimerRef.current);
+        }
+      };
+    }, []);
+    async function handleCopyClick() {
+      if (!onCopyThreads) {
+        return;
+      }
+      const ok = await onCopyThreads();
+      if (!ok) {
+        return;
+      }
+      setCopyConfirmed(true);
+      if (copyConfirmTimerRef.current != null) {
+        window.clearTimeout(copyConfirmTimerRef.current);
+      }
+      copyConfirmTimerRef.current = window.setTimeout(() => {
+        setCopyConfirmed(false);
+        copyConfirmTimerRef.current = null;
+      }, 1500);
+    }
     const showPagesNav = documentsWithComments.length > 0;
     const hasPagesWithComments = documentsWithComments.length > 0;
     const hasUnread = unreadTotal > 0;
@@ -246,19 +280,41 @@ export const ReviewCommentsPanel = forwardRef<HTMLElement, ReviewCommentsPanelPr
                     </span>
                   </p>
                 </div>
-                <span
-                  className="rrc-tooltip-anchor rrc-tooltip-anchor--left"
-                  data-tooltip={labels.collapse}
-                >
-                  <button
-                    type="button"
-                    aria-label={labels.collapse}
-                    className="rrc-icon-btn"
-                    onClick={onCollapse}
+                <div className="rrc-panel-header-actions">
+                  {onCopyThreads && (
+                    <span
+                      className="rrc-tooltip-anchor rrc-tooltip-anchor--left"
+                      data-tooltip={
+                        copyConfirmed ? labels.copyThreadsAsMarkdownDone : labels.copyThreadsAsMarkdown
+                      }
+                    >
+                      <button
+                        type="button"
+                        aria-label={
+                          copyConfirmed ? labels.copyThreadsAsMarkdownDone : labels.copyThreadsAsMarkdown
+                        }
+                        className="rrc-icon-btn"
+                        disabled={!canCopyThreads}
+                        onClick={handleCopyClick}
+                      >
+                        {copyConfirmed ? <Check size={16} /> : <Copy size={16} />}
+                      </button>
+                    </span>
+                  )}
+                  <span
+                    className="rrc-tooltip-anchor rrc-tooltip-anchor--left"
+                    data-tooltip={labels.collapse}
                   >
-                    <ChevronsRight size={16} />
-                  </button>
-                </span>
+                    <button
+                      type="button"
+                      aria-label={labels.collapse}
+                      className="rrc-icon-btn"
+                      onClick={onCollapse}
+                    >
+                      <ChevronsRight size={16} />
+                    </button>
+                  </span>
+                </div>
               </div>
 
               {showPagesNav && (

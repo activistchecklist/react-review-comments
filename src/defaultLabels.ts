@@ -60,4 +60,6 @@ export const defaultReviewCommentsLabels: ReviewCommentsLabels = {
   show: 'Show',
   hide: 'Hide',
   newCommentBadge: 'New',
+  copyThreadsAsMarkdown: 'Copy threads as Markdown',
+  copyThreadsAsMarkdownDone: 'Copied',
 };
