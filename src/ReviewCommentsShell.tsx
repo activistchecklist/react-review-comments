@@ -15,6 +15,7 @@ import { useReviewComments } from './context';
 import { ReviewCommentsPanel } from './ReviewCommentsPanel';
 import { SelectionComposer } from './SelectionComposer';
 import { ThreadList } from './ThreadList';
+import { formatThreadsAsMarkdown } from './formatThreadsMarkdown';
 import { useHostDarkMode } from './useHostDarkMode';
 import {
   applyDraftQuoteHighlightByOffsets,
@@ -601,6 +602,40 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
     return children;
   }
 
+  const handleCopyThreads = useCallback(async () => {
+    if (typeof navigator === 'undefined') {
+      return false;
+    }
+    const markdown = formatThreadsAsMarkdown(threads, { path, locale });
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(markdown);
+        return true;
+      }
+    } catch {
+      // fall through to the textarea fallback
+    }
+    if (typeof document === 'undefined') {
+      return false;
+    }
+    const textarea = document.createElement('textarea');
+    textarea.value = markdown;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.top = '-1000px';
+    textarea.style.opacity = '0';
+    document.body.appendChild(textarea);
+    textarea.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch {
+      ok = false;
+    }
+    document.body.removeChild(textarea);
+    return ok;
+  }, [threads, path, locale]);
+
   function handleCollapsePanel() {
     if (activeThreadId) {
       const t = threads.find((th) => th.id === activeThreadId);
@@ -866,6 +901,8 @@ export default function ReviewCommentsShell({ children }: { children: ReactNode 
             showEmptyHint={showEmptyHint}
             pagesListOpen={pagesListOpen}
             onTogglePagesList={() => setPagesListOpen((prev) => !prev)}
+            onCopyThreads={handleCopyThreads}
+            canCopyThreads={threads.length > 0}
           >
             <ThreadList
               threads={visibleThreads}

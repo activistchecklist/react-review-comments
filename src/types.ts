@@ -69,6 +69,10 @@ export interface ReviewCommentsLabels {
   hide: string;
   /** Short label on comments newer than last-seen (e.g. ribbon on new reply). */
   newCommentBadge: string;
+  /** Tooltip / aria-label on the panel header "copy threads as markdown" button. */
+  copyThreadsAsMarkdown: string;
+  /** Tooltip / aria-label shown briefly after the markdown copy succeeds. */
+  copyThreadsAsMarkdownDone: string;
 }
 
 export type PartialReviewCommentsLabels = Partial<ReviewCommentsLabels>;
