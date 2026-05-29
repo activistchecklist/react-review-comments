@@ -27,6 +27,52 @@ function blockquote(text: string): string {
   return lines.map((line) => `> ${line}`.trimEnd()).join('\n');
 }
 
+/**
+ * Quotes shorter than this are rendered with surrounding page context (when available)
+ * so it's clear which part of the page the comment refers to when the markdown is
+ * pasted into another tool (e.g. an LLM).
+ */
+const SHORT_QUOTE_CHAR_THRESHOLD = 80;
+
+function readAnchorContext(
+  thread: RrcThread,
+  key: 'contextBefore' | 'contextAfter'
+): string {
+  const anchor = thread.anchor_selector;
+  if (!anchor || typeof anchor !== 'object') {
+    return '';
+  }
+  const value = (anchor as Record<string, unknown>)[key];
+  return typeof value === 'string' ? value : '';
+}
+
+/**
+ * Render the thread quote as a blockquote. Short quotes are wrapped with up to ~160
+ * chars of page context on each side, with the actually-selected portion marked in
+ * `[brackets]` and the truncated context boundaries marked with `…`.
+ */
+function quoteSection(thread: RrcThread): string {
+  const quoteRaw = String(thread.quote_text || '').replace(/\r\n/g, '\n');
+  const inner = quoteRaw.trim();
+  if (!inner) {
+    return '';
+  }
+  if (inner.length >= SHORT_QUOTE_CHAR_THRESHOLD) {
+    return blockquote(quoteRaw);
+  }
+  // Context fields keep the single boundary space adjacent to the selection
+  // (see scrubAnchorString); trim only the outer/truncated edge so the `…`
+  // sits flush while the space between context and selection is preserved.
+  const before = readAnchorContext(thread, 'contextBefore').replace(/\r\n/g, '\n').replace(/^\s+/, '');
+  const after = readAnchorContext(thread, 'contextAfter').replace(/\r\n/g, '\n').replace(/\s+$/, '');
+  if (!before && !after) {
+    return blockquote(quoteRaw);
+  }
+  const beforePart = before ? `…${before}` : '';
+  const afterPart = after ? `${after}…` : '';
+  return blockquote(`${beforePart}[${inner}]${afterPart}`);
+}
+
 function commentBlock(comment: RrcComment): string {
   const author = String(comment.created_by || '').trim() || 'Anonymous';
   const when = commentTimestamp(comment);
@@ -45,7 +91,8 @@ function statusLabel(status: string | undefined): string {
  * to be readable in a code review or chat and parseable by an LLM:
  * - one H1 with page metadata,
  * - one H2 per thread with status,
- * - a blockquote for the selected text (`quote_text`),
+ * - a blockquote for the selected text (`quote_text`); short selections are
+ *   wrapped in surrounding page context with the selection itself in `[brackets]`,
  * - author + ISO timestamp + body for each comment, in order.
  */
 export function formatThreadsAsMarkdown(
@@ -82,7 +129,7 @@ export function formatThreadsAsMarkdown(
 
   const sections = sorted.map((thread, index) => {
     const heading = `## Thread ${index + 1} · ${statusLabel(thread.status)}`;
-    const quote = blockquote(thread.quote_text || '');
+    const quote = quoteSection(thread);
     const comments = thread.comments.map(commentBlock).join('\n\n');
     return [heading, quote, comments].filter(Boolean).join('\n\n');
   });

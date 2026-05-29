@@ -113,6 +113,137 @@ describe('formatThreadsAsMarkdown', () => {
     expect(md).toContain('**Anonymous**');
   });
 
+  it('wraps a short quote in surrounding context with the selection in brackets', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-short',
+          quote_text: 'click here',
+          status: 'open',
+          anchor_selector: {
+            contextBefore: 'To register for the workshop, ',
+            contextAfter: ' to begin the signup process.',
+          },
+          comments: [
+            {
+              id: 'c1',
+              body: 'Which link is this?',
+              created_by: 'Alice',
+              created_at: '2026-05-20T10:00:00.000Z',
+            },
+          ],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain(
+      '> …To register for the workshop, [click here] to begin the signup process.…'
+    );
+  });
+
+  it('only emits leading ellipsis when contextAfter is missing', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-only-before',
+          quote_text: 'final word',
+          status: 'open',
+          anchor_selector: {
+            contextBefore: 'Some text leading up to the ',
+            contextAfter: '',
+          },
+          comments: [
+            { id: 'c1', body: 'note', created_by: 'A' },
+          ],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain('> …Some text leading up to the [final word]');
+    expect(md).not.toContain('[final word]…');
+  });
+
+  it('does not wrap when no context is available on a short quote', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-no-ctx',
+          quote_text: 'short',
+          status: 'open',
+          comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain('> short');
+    expect(md).not.toContain('[short]');
+    expect(md).not.toContain('…');
+  });
+
+  it('does not wrap quotes longer than the short-quote threshold', () => {
+    const longQuote =
+      'This is a fairly long quote that easily stands on its own as context and does not need additional surrounding text to be understood.';
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-long',
+          quote_text: longQuote,
+          status: 'open',
+          anchor_selector: {
+            contextBefore: 'before context that should not appear ',
+            contextAfter: ' after context that should not appear',
+          },
+          comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain(`> ${longQuote}`);
+    expect(md).not.toContain(`[${longQuote}]`);
+    expect(md).not.toContain('before context that should not appear');
+    expect(md).not.toContain('…');
+  });
+
+  it('keeps the boundary space from the context outside the bracket marker', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-ws',
+          quote_text: 'click here',
+          status: 'open',
+          anchor_selector: {
+            // Boundary spaces live on the context fields (preserved by the
+            // sanitizer); only the outer/truncated edge is trimmed.
+            contextBefore: 'the workshop, ',
+            contextAfter: ' to sign up',
+          },
+          comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain('> …the workshop, [click here] to sign up…');
+  });
+
+  it('does not fabricate a boundary space when the context abuts the selection', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-midword',
+          quote_text: 'tration',
+          status: 'open',
+          anchor_selector: {
+            contextBefore: 'Please regis',
+            contextAfter: ' now',
+          },
+          comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain('> …Please regis[tration] now…');
+  });
+
   it('returns an empty-state message when there are no threads', () => {
     const md = formatThreadsAsMarkdown([], {
       path: '/x',
