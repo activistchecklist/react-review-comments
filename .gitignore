@@ -1,6 +1,11 @@
 # Dependencies (if tooling installs locally)
 node_modules/
 
+# This is a yarn project; a pnpm-lock.yaml only appears when a host app runs
+# `pnpm link` inside this checkout. It must not be committed — changesets'
+# package-manager detection picks pnpm over yarn and breaks `release.yml`.
+pnpm-lock.yaml
+
 # Build / cache
 dist/
 build/
