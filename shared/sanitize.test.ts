@@ -37,6 +37,15 @@ describe('sanitizeAnchorSelector', () => {
     expect(sanitizeAnchorSelector('x')).toEqual({});
     expect(sanitizeAnchorSelector(null)).toEqual({});
   });
+
+  it('preserves the boundary space on context fields (collapses but does not trim)', () => {
+    const out = sanitizeAnchorSelector({
+      contextBefore: 'To register for the workshop,  ',
+      contextAfter: '  to begin the signup process.',
+    });
+    expect(out.contextBefore).toBe('To register for the workshop, ');
+    expect(out.contextAfter).toBe(' to begin the signup process.');
+  });
 });
 
 describe('sanitizeCommentInput', () => {

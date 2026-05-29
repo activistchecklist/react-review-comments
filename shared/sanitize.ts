@@ -34,6 +34,23 @@ function scrubText(value: string, maxLen: number): string {
   return normalizeQuoteMatchText(value).slice(0, maxLen);
 }
 
+/**
+ * Like scrubText but keeps leading/trailing whitespace. Anchor context fields
+ * (contextBefore/contextAfter) carry the single boundary space adjacent to the
+ * selection; trimming it makes the markdown export run context into the quote
+ * (e.g. "workshop,[click here]to begin"). Matching re-normalizes both sides, so
+ * the extra boundary space is harmless there.
+ */
+function scrubAnchorString(value: string, maxLen: number): string {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .slice(0, maxLen);
+}
+
 /** Strips dangerous control chars but keeps line breaks (LF); used for comment bodies only. */
 function scrubCommentBody(value: string, maxLen: number): string {
   if (typeof value !== 'string') {
@@ -86,7 +103,7 @@ function sanitizePlainObjectForAnchor(
       }
       out[key] = v;
     } else if (typeof v === 'string') {
-      out[key] = scrubText(v, MAX_ANCHOR_STRING_LEN);
+      out[key] = scrubAnchorString(v, MAX_ANCHOR_STRING_LEN);
     } else if (typeof v === 'object' && v !== null && !Array.isArray(v)) {
       const nested = sanitizePlainObjectForAnchor(v as Record<string, unknown>, depth + 1);
       if (Object.keys(nested).length > 0) {

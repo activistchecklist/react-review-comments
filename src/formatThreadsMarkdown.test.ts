@@ -113,7 +113,7 @@ describe('formatThreadsAsMarkdown', () => {
     expect(md).toContain('**Anonymous**');
   });
 
-  it('wraps a short quote in surrounding context with the selection in bold', () => {
+  it('wraps a short quote in surrounding context with the selection in brackets', () => {
     const md = formatThreadsAsMarkdown(
       [
         {
@@ -137,7 +137,7 @@ describe('formatThreadsAsMarkdown', () => {
       { exportedAt: '2026-05-22T00:00:00.000Z' }
     );
     expect(md).toContain(
-      '> …To register for the workshop, **click here** to begin the signup process.…'
+      '> …To register for the workshop, [click here] to begin the signup process.…'
     );
   });
 
@@ -159,8 +159,8 @@ describe('formatThreadsAsMarkdown', () => {
       ],
       { exportedAt: '2026-05-22T00:00:00.000Z' }
     );
-    expect(md).toContain('> …Some text leading up to the **final word**');
-    expect(md).not.toContain('**final word**…');
+    expect(md).toContain('> …Some text leading up to the [final word]');
+    expect(md).not.toContain('[final word]…');
   });
 
   it('does not wrap when no context is available on a short quote', () => {
@@ -176,7 +176,7 @@ describe('formatThreadsAsMarkdown', () => {
       { exportedAt: '2026-05-22T00:00:00.000Z' }
     );
     expect(md).toContain('> short');
-    expect(md).not.toContain('**short**');
+    expect(md).not.toContain('[short]');
     expect(md).not.toContain('…');
   });
 
@@ -199,28 +199,49 @@ describe('formatThreadsAsMarkdown', () => {
       { exportedAt: '2026-05-22T00:00:00.000Z' }
     );
     expect(md).toContain(`> ${longQuote}`);
-    expect(md).not.toContain(`**${longQuote}**`);
+    expect(md).not.toContain(`[${longQuote}]`);
     expect(md).not.toContain('before context that should not appear');
     expect(md).not.toContain('…');
   });
 
-  it('keeps whitespace at the boundaries outside the bold marker', () => {
+  it('keeps the boundary space from the context outside the bracket marker', () => {
     const md = formatThreadsAsMarkdown(
       [
         {
           id: 't-ws',
-          quote_text: '  click here  ',
+          quote_text: 'click here',
           status: 'open',
           anchor_selector: {
-            contextBefore: 'Please',
-            contextAfter: 'now',
+            // Boundary spaces live on the context fields (preserved by the
+            // sanitizer); only the outer/truncated edge is trimmed.
+            contextBefore: 'the workshop, ',
+            contextAfter: ' to sign up',
           },
           comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
         },
       ],
       { exportedAt: '2026-05-22T00:00:00.000Z' }
     );
-    expect(md).toContain('> …Please  **click here**  now…');
+    expect(md).toContain('> …the workshop, [click here] to sign up…');
+  });
+
+  it('does not fabricate a boundary space when the context abuts the selection', () => {
+    const md = formatThreadsAsMarkdown(
+      [
+        {
+          id: 't-midword',
+          quote_text: 'tration',
+          status: 'open',
+          anchor_selector: {
+            contextBefore: 'Please regis',
+            contextAfter: ' now',
+          },
+          comments: [{ id: 'c1', body: 'note', created_by: 'A' }],
+        },
+      ],
+      { exportedAt: '2026-05-22T00:00:00.000Z' }
+    );
+    expect(md).toContain('> …Please regis[tration] now…');
   });
 
   it('returns an empty-state message when there are no threads', () => {

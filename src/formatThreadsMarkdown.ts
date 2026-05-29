@@ -49,7 +49,7 @@ function readAnchorContext(
 /**
  * Render the thread quote as a blockquote. Short quotes are wrapped with up to ~160
  * chars of page context on each side, with the actually-selected portion marked in
- * `**bold**` and the truncated context boundaries marked with `…`.
+ * `[brackets]` and the truncated context boundaries marked with `…`.
  */
 function quoteSection(thread: RrcThread): string {
   const quoteRaw = String(thread.quote_text || '').replace(/\r\n/g, '\n');
@@ -60,18 +60,17 @@ function quoteSection(thread: RrcThread): string {
   if (inner.length >= SHORT_QUOTE_CHAR_THRESHOLD) {
     return blockquote(quoteRaw);
   }
-  const before = readAnchorContext(thread, 'contextBefore').replace(/\r\n/g, '\n');
-  const after = readAnchorContext(thread, 'contextAfter').replace(/\r\n/g, '\n');
+  // Context fields keep the single boundary space adjacent to the selection
+  // (see scrubAnchorString); trim only the outer/truncated edge so the `…`
+  // sits flush while the space between context and selection is preserved.
+  const before = readAnchorContext(thread, 'contextBefore').replace(/\r\n/g, '\n').replace(/^\s+/, '');
+  const after = readAnchorContext(thread, 'contextAfter').replace(/\r\n/g, '\n').replace(/\s+$/, '');
   if (!before && !after) {
     return blockquote(quoteRaw);
   }
-  // Markdown bold can't have inner whitespace, so push any surrounding whitespace
-  // outside the `**…**` markers.
-  const leadingWs = quoteRaw.match(/^\s*/)?.[0] ?? '';
-  const trailingWs = quoteRaw.match(/\s*$/)?.[0] ?? '';
-  const beforePart = before ? `…${before}${leadingWs}` : leadingWs;
-  const afterPart = after ? `${trailingWs}${after}…` : trailingWs;
-  return blockquote(`${beforePart}**${inner}**${afterPart}`);
+  const beforePart = before ? `…${before}` : '';
+  const afterPart = after ? `${after}…` : '';
+  return blockquote(`${beforePart}[${inner}]${afterPart}`);
 }
 
 function commentBlock(comment: RrcComment): string {
@@ -93,7 +92,7 @@ function statusLabel(status: string | undefined): string {
  * - one H1 with page metadata,
  * - one H2 per thread with status,
  * - a blockquote for the selected text (`quote_text`); short selections are
- *   wrapped in surrounding page context with the selection itself in `**bold**`,
+ *   wrapped in surrounding page context with the selection itself in `[brackets]`,
  * - author + ISO timestamp + body for each comment, in order.
  */
 export function formatThreadsAsMarkdown(
